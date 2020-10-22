@@ -49,18 +49,13 @@ int phase2;
 int phase3;
 int phase4;
 
-const int chipSelectPin = 2;
+const int chipSelectPin = 2; // DAC chip select pin
 
 float readADC()
 {
-  // Read ADC Channel 0
-  int16_t adc = ads1115.readADC_SingleEnded(0);
-
-  // Calculate voltage using multiplier
-  float v = (float)adc * multiplier;
-
-  // Convert signal to current based on output voltage and reference resistor
-  return v / rRef * 1.0e6;
+  int16_t adc = ads1115.readADC_SingleEnded(0); // Read ADC Channel 0
+  float v = (float)adc * multiplier;            // Calculate voltage using multiplier
+  return v / rRef * 1.0e6;                      // Convert signal to current based on output voltage and reference resistor
 }
 
 void writeDAC(uint16_t data, uint8_t chipSelectPin)
@@ -79,23 +74,24 @@ void writeDAC(uint16_t data, uint8_t chipSelectPin)
   digitalWrite(chipSelectPin, HIGH); // Deselect DAC
 }
 
-void dacSetup()
+void setupDAC()
 {
-  float vRefDAC = (float)analogRead(A0) * (3316.0 / 1023.0); // Determine value of vRef for the DAC
-  // float vRefDAC = 1115;
-  float maxRange = 2.0 * vRefDAC;             // Full range of gate sweep (mV)
-  float smallStep = maxRange / (float)dacRes; // Voltage increment based on DAC resolution
+  float vRefDAC = (float)analogRead(A0) * (3300.0 / 1023.0); // Determine value of vRef for the DAC
+  float maxRange = 2.0 * vRefDAC;                            // Full range of gate sweep (mV)
+  float smallStep = maxRange / (float)dacRes;                // Voltage increment based on DAC resolution
+
+  // Serial.print("vRefDAC: ");
+  // Serial.println(vRefDAC);
+  // Serial.print("smallStep: ");
+  // Serial.println(smallStep);
 
   // Setup for constant non-zero potential setting
   if (readerSetting == "c")
   {
     indexConstPot = indexGround + (int)((float)medianUser / smallStep); // Even though smallStep is a float, value becomes an int
-    Serial.print("vRefDAC: ");
-    Serial.println(vRefDAC);
-    Serial.print("smallStep: ");
-    Serial.println(smallStep);
-    Serial.print("indexConstPot: ");
-    Serial.println(indexConstPot);
+
+    // Serial.print("indexConstPot: ");
+    // Serial.println(indexConstPot);
   }
 
   // Setup for sweep and transfer curve settings
@@ -111,21 +107,21 @@ void dacSetup()
 
     periodUser = 1.0e6 / (float)frequencyUser; // Period in milliseconds
 
-    Serial.print("Index top limit: ");
-    Serial.println(indexTopLim);
-    Serial.print("Index bottom limit: ");
-    Serial.println(indexBtmLim);
+    // Serial.print("Index top limit: ");
+    // Serial.println(indexTopLim);
+    // Serial.print("Index bottom limit: ");
+    // Serial.println(indexBtmLim);
 
-    Serial.print("Phase1: ");
-    Serial.println(phase1);
-    Serial.print("Phase2: ");
-    Serial.println(phase2);
-    Serial.print("Phase3: ");
-    Serial.println(phase3);
-    Serial.print("Phase4: ");
-    Serial.println(phase4);
-    Serial.print("Period: ");
-    Serial.println(periodUser, 6);
+    // Serial.print("Phase1: ");
+    // Serial.println(phase1);
+    // Serial.print("Phase2: ");
+    // Serial.println(phase2);
+    // Serial.print("Phase3: ");
+    // Serial.println(phase3);
+    // Serial.print("Phase4: ");
+    // Serial.println(phase4);
+    // Serial.print("Period: ");
+    // Serial.println(periodUser, 6);
   }
 }
 
@@ -133,9 +129,8 @@ uint16_t sweepIndex(unsigned long timeExperiment)
 {
   uint16_t indexDAC;
   float interval = fmod(timeExperiment, periodUser) / periodUser; // Find point in waveform
-  Serial.print("Interval: ");
-  Serial.print(interval, 5);
-  Serial.print(", ");
+  // Serial.print("Interval: ");
+  // Serial.println(interval, 5);
 
   // Map interval to corresponding index
   if (interval <= 0.25)
@@ -155,8 +150,8 @@ uint16_t sweepIndex(unsigned long timeExperiment)
     indexDAC = (uint16_t)round((float)indexGround + ((interval - 1.0) / 0.25 * phase4));
   }
 
-  Serial.print("DAC index: ");
-  Serial.println(indexDAC);
+  // Serial.print("DAC index: ");
+  // Serial.println(indexDAC);
 
   return indexDAC;
 }
@@ -212,14 +207,14 @@ void serialReadSetup()
   String frequencyInput = dataStr.substring(thirdDelim + 1, -1);
   frequencyUser = frequencyInput.toInt();
 
-  Serial.print("Setting: ");
-  Serial.println(readerSetting);
-  Serial.print("Median: ");
-  Serial.println(medianUser);
-  Serial.print("Amplitude: ");
-  Serial.println(amplitudeUser);
-  Serial.print("Frequency: ");
-  Serial.println(frequencyUser);
+  // Serial.print("Setting: ");
+  // Serial.println(readerSetting);
+  // Serial.print("Median: ");
+  // Serial.println(medianUser);
+  // Serial.print("Amplitude: ");
+  // Serial.println(amplitudeUser);
+  // Serial.print("Frequency: ");
+  // Serial.println(frequencyUser);
 }
 
 void serialTransmission(unsigned long timeExperiment, float iSen)
@@ -259,7 +254,7 @@ void loop()
   uint16_t indexDAC;
 
   serialReadSetup();
-  dacSetup();
+  setupDAC();
 
   {
     // Option 1: hold counter electrode at steady potential
