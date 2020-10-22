@@ -81,8 +81,8 @@ void writeDAC(uint16_t data, uint8_t chipSelectPin)
 
 void dacSetup()
 {
-  // float vRefDAC = (float)analogRead(A0) * (3300.0 / 1023.0); // Determine value of vRef for the DAC
-  float vRefDAC = 1115;
+  float vRefDAC = (float)analogRead(A0) * (3316.0 / 1023.0); // Determine value of vRef for the DAC
+  // float vRefDAC = 1115;
   float maxRange = 2.0 * vRefDAC;             // Full range of gate sweep (mV)
   float smallStep = maxRange / (float)dacRes; // Voltage increment based on DAC resolution
 
@@ -90,6 +90,12 @@ void dacSetup()
   if (readerSetting == "c")
   {
     indexConstPot = indexGround + (int)((float)medianUser / smallStep); // Even though smallStep is a float, value becomes an int
+    Serial.print("vRefDAC: ");
+    Serial.println(vRefDAC);
+    Serial.print("smallStep: ");
+    Serial.println(smallStep);
+    Serial.print("indexConstPot: ");
+    Serial.println(indexConstPot);
   }
 
   // Setup for sweep and transfer curve settings
@@ -161,6 +167,7 @@ void serialReadSetup()
   char dataChar;          // Individual data character read from buffer
   char startMarker = '<'; // Indicates beginning of message
   char endMarker = '>';   // Indicates end of message
+  char resetMarker = 'e'; // Reset system
   static boolean receiveInProgress = false;
 
   // While data in serial buffer...
@@ -183,6 +190,10 @@ void serialReadSetup()
     else if (dataChar == startMarker)
     {
       receiveInProgress = true;
+    }
+    else if (dataChar == resetMarker)
+    {
+      NVIC_SystemReset(); // Processor software reset
     }
   }
 
@@ -228,52 +239,54 @@ void setup()
   SPI.begin();
   SPI.setClockDivider(SPI_CLOCK_DIV8);
 
+  pinMode(chipSelectPin, OUTPUT);
   digitalWrite(chipSelectPin, HIGH);    // Initialize CS pin in default state
   writeDAC(indexGround, chipSelectPin); // Immediately set to ground potential
 
   Serial.begin(500000); // Set baud rate for serial communication
-  delay(100);
+  // delay(100);
 
   while (Serial.available() < 1)
   {
     ; // Delay until incoming message from user
   }
-
-  serialReadSetup();
-  dacSetup();
 }
 
 void loop()
 {
-  bool dataCollection = true;
   unsigned long timeStart, timeExperiment;
   float iSen;
   uint16_t indexDAC;
 
-  // Option 1: hold counter electrode at steady potential
-  if (readerSetting == "c")
-  {
-    writeDAC(indexConstPot, chipSelectPin);
-    timeStart = millis();
-    while (dataCollection)
-    {
-      timeExperiment = millis() - timeStart;
-      iSen = readADC();
-      serialTransmission(timeExperiment, iSen);
-    }
-  }
+  serialReadSetup();
+  dacSetup();
 
-  // Option 2: sweep counter electrode
-  else if (readerSetting == "s")
   {
-    timeStart = millis();
-    while (dataCollection)
+    // Option 1: hold counter electrode at steady potential
+    if (readerSetting == "c")
     {
-      timeExperiment = millis() - timeStart;
-      indexDAC = sweepIndex(timeExperiment);
-      writeDAC(indexDAC, chipSelectPin);
-      iSen = readADC();
-      serialTransmission(timeExperiment, iSen);
+      writeDAC(indexConstPot, chipSelectPin);
+      timeStart = millis();
+      while (Serial.available() < 1)
+      {
+        timeExperiment = millis() - timeStart;
+        iSen = readADC();
+        serialTransmission(timeExperiment, iSen);
+      }
+    }
+
+    // Option 2: sweep counter electrode
+    else if (readerSetting == "s")
+    {
+      timeStart = millis();
+      while (Serial.available() < 1)
+      {
+        timeExperiment = millis() - timeStart;
+        indexDAC = sweepIndex(timeExperiment);
+        writeDAC(indexDAC, chipSelectPin);
+        iSen = readADC();
+        serialTransmission(timeExperiment, iSen);
+      }
     }
   }
 }
